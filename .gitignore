@@ -37,3 +37,15 @@ yarn-error.*
 *.tsbuildinfo
 
 app-example
+
+# SECURITY: Sensitive files
+gcloud-key.json
+.env
+.env.local
+.env.production
+firebase-service-account.json
+google-services.json
+GoogleService-Info.plist
+Credentials
+*.apk
+*.aab

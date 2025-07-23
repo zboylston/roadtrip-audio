@@ -1,11 +1,8 @@
 import { initializeApp } from "firebase/app";
-import { collection, getDocs, getFirestore } from "firebase/firestore";
+import { getFirestore } from "firebase/firestore";
 
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
-// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-    apiKey: "AIzaSyCn6zNZob64SMurO2n0qEcM2B8hn7cmLWM",
+    apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || "AIzaSyCn6zNZob64SMurO2n0qEcM2B8hn7cmLWM",
     authDomain: "drivebyhistory-976cd.firebaseapp.com",
     projectId: "drivebyhistory-976cd",
     storageBucket: "drivebyhistory-976cd.appspot.com",
@@ -16,10 +13,3 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
-
-(async () => {
-  const querySnapshot = await getDocs(collection(db, 'Waypoints'));
-  querySnapshot.forEach(doc => {
-    console.log(doc.id, doc.data());
-  });
-})();
