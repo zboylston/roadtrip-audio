@@ -8,6 +8,10 @@
       "developmentClient": true,
       "distribution": "internal"
     },
+    "standalone": {
+      "developmentClient": false,
+      "distribution": "internal"
+    },
     "preview": {
       "distribution": "internal"
     },

@@ -4,7 +4,6 @@ import { ActivityIndicator, View } from 'react-native';
 
 interface Settings {
   notificationMode: 'autoplay' | 'notification';
-  autoPlayEnabled: boolean;
   notificationsEnabled: boolean;
   backgroundLocationEnabled: boolean;
   soundEnabled: boolean;
@@ -19,7 +18,6 @@ interface SettingsContextType {
 
 const defaultSettings: Settings = {
   notificationMode: 'notification',
-  autoPlayEnabled: true,
   notificationsEnabled: false,
   backgroundLocationEnabled: false,
   soundEnabled: true,

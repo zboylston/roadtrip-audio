@@ -1,3 +1,4 @@
+import { Audio } from 'expo-av';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
@@ -37,6 +38,27 @@ export const notificationService = {
     }
   },
 
+  // Play approach notification audio
+  async playApproachNotification() {
+    try {
+      const { sound } = await Audio.Sound.createAsync(
+        require('../assets/audio/approach-notification.mp3'),
+        { shouldPlay: true, volume: 1.0 }
+      );
+      
+      // Clean up after playing
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          sound.unloadAsync();
+        }
+      });
+      
+      console.log('Playing approach notification sound from notification service');
+    } catch (error) {
+      console.error('Error playing approach notification:', error);
+    }
+  },
+
   // Schedule a local notification
   async scheduleNotification(title, body, data = {}) {
     try {
@@ -66,24 +88,24 @@ export const notificationService = {
         return false;
       }
 
-      // Define the geofencing task
-      TaskManager.defineTask(GEOFENCE_TASK, async ({ data: { eventType, region }, error }) => {
-        if (error) {
-          console.error('Geofencing task error:', error);
-          return;
-        }
+      // Stop any existing geofencing first
+      await this.stopGeofencing();
 
-        if (eventType === Location.GeofencingEventType.Enter) {
-          const waypoint = waypoints.find(wp => wp.id === region.identifier);
-          if (waypoint) {
-            await this.scheduleNotification(
-              'Nearby Waypoint',
-              `You're approaching: ${waypoint.title}`,
-              { waypointId: waypoint.id, waypointTitle: waypoint.title }
-            );
+      // Define the geofencing task (only once)
+      if (!TaskManager.isTaskDefined(GEOFENCE_TASK)) {
+        TaskManager.defineTask(GEOFENCE_TASK, async ({ data: { eventType, region }, error }) => {
+          if (error) {
+            console.error('Geofencing task error:', error);
+            return;
           }
-        }
-      });
+
+          if (eventType === Location.GeofencingEventType.Enter) {
+            // Geofencing is now only used for background location tracking
+            // Notifications are handled by the manual detection system
+            console.log('Geofence entered for waypoint:', region.identifier);
+          }
+        });
+      }
 
       // Start geofencing for all waypoints
       const geofences = waypoints.map(wp => ({
