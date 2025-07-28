@@ -466,6 +466,53 @@ export default function SettingsScreen() {
             )}
           </View>
 
+          {/* Car Safety Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Car Safety</Text>
+            
+            <View style={styles.settingItem}>
+              <View style={styles.settingInfo}>
+                <View style={styles.settingIcon}>
+                  <Ionicons name="car" size={20} color="#2c5aa0" />
+                </View>
+                <View style={styles.settingText}>
+                  <Text style={styles.settingTitle}>Driving Mode</Text>
+                  <Text style={styles.settingDescription}>
+                    Optimize the app for safe driving. Audio will automatically pause for navigation alerts and emergency sounds.
+                  </Text>
+                </View>
+              </View>
+            </View>
+            
+            <View style={styles.settingItem}>
+              <View style={styles.settingInfo}>
+                <View style={styles.settingIcon}>
+                  <Ionicons name="volume-high" size={20} color="#2c5aa0" />
+                </View>
+                <View style={styles.settingText}>
+                  <Text style={styles.settingTitle}>Audio Safety</Text>
+                  <Text style={styles.settingDescription}>
+                    Stories automatically pause for navigation directions and emergency alerts. Background audio continues when app is closed.
+                  </Text>
+                </View>
+              </View>
+            </View>
+            
+            <View style={styles.settingItem}>
+              <View style={styles.settingInfo}>
+                <View style={styles.settingIcon}>
+                  <Ionicons name="notifications-off" size={20} color="#2c5aa0" />
+                </View>
+                <View style={styles.settingText}>
+                  <Text style={styles.settingTitle}>Non-Intrusive Alerts</Text>
+                  <Text style={styles.settingDescription}>
+                    Notifications don't require immediate interaction. Stories play automatically or wait for your tap.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
           {/* Location Settings Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Location</Text>

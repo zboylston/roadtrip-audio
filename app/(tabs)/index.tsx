@@ -399,6 +399,24 @@ export default function WaypointsScreen() {
       shadowRadius: 2,
       elevation: 1,
     },
+    safetyDisclaimer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: '#FFF8E1',
+      padding: 12,
+      margin: 16,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: '#FFE082',
+      gap: 8,
+    },
+    safetyDisclaimerText: {
+      flex: 1,
+      fontSize: 12,
+      color: '#8B4513',
+      fontFamily: Platform.OS === 'ios' ? 'SF Pro Display' : 'System',
+      lineHeight: 16,
+    },
   });
 
   // --- Load waypoints from Firebase ---
@@ -1490,6 +1508,14 @@ export default function WaypointsScreen() {
             showsVerticalScrollIndicator={false}
           />
         )}
+        
+        {/* Safety Disclaimer */}
+        <View style={styles.safetyDisclaimer}>
+          <Ionicons name="warning" size={16} color="#8B4513" />
+          <Text style={styles.safetyDisclaimerText}>
+            Drive safely. Stories play automatically and continue in background. Focus on the road.
+          </Text>
+        </View>
       </View>
     </View>
   );
