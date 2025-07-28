@@ -34,6 +34,7 @@ export default function WaypointsScreen() {
   const tripStartTimeRef = useRef<number>(0);
   const lastDetectionTimeRef = useRef<number>(0);
   const notifiedWaypointsRef = useRef<Set<string>>(new Set());
+  const [backgroundAudioPlaying, setBackgroundAudioPlaying] = useState<boolean>(false);
   const soundRef = useRef<Audio.Sound | null>(null);
   const mapWebViewRef = useRef<WebView>(null);
   const router = useRouter();
@@ -492,6 +493,24 @@ export default function WaypointsScreen() {
     loadWaypoints();
     loadUserPreferences();
     
+    // Configure audio for background playback
+    const configureAudio = async () => {
+      try {
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: false,
+          staysActiveInBackground: true,
+          playsInSilentModeIOS: true,
+          shouldDuckAndroid: true,
+          playThroughEarpieceAndroid: false,
+        });
+        console.log('Audio configured for background playback');
+      } catch (error) {
+        console.error('Error configuring audio:', error);
+      }
+    };
+    
+    configureAudio();
+    
     // Cleanup function for component unmount
     return () => {
       // Stop any playing audio
@@ -625,6 +644,12 @@ export default function WaypointsScreen() {
   // --- Check for approaching waypoints and handle notifications/auto-play ---
   useEffect(() => {
     if (!userLocation || !waypoints.length || !tripActive) return;
+    
+    // Don't detect new waypoints while audio is playing
+    if (playingId || backgroundAudioPlaying) {
+      console.log('Skipping waypoint detection - audio is currently playing');
+      return;
+    }
     
     const currentTime = Date.now();
     const detectionCooldown = 5 * 1000; // 5 seconds between detections
@@ -944,7 +969,10 @@ export default function WaypointsScreen() {
           console.log('Loading audio file:', audioUrl);
           const { sound } = await Audio.Sound.createAsync(
             { uri: audioUrl },
-            { shouldPlay: true }
+            { 
+              shouldPlay: true,
+              progressUpdateIntervalMillis: 1000,
+            }
           );
           soundRef.current = sound;
           
@@ -954,8 +982,13 @@ export default function WaypointsScreen() {
               if (status.didJustFinish) {
                 setPlayingId(null);
                 setPaused(false);
+                setBackgroundAudioPlaying(false);
                 // Record the time this story finished (for cooldown)
                 setLastStoryTime(Date.now());
+              } else if (status.isPlaying) {
+                setBackgroundAudioPlaying(true);
+              } else if (!status.isPlaying) {
+                setBackgroundAudioPlaying(false);
               }
             }
           });
@@ -1042,6 +1075,7 @@ export default function WaypointsScreen() {
       setPlayingId(null);
       setPaused(false);
       setAudioLoading(false);
+      setBackgroundAudioPlaying(false);
       console.log('Audio stopped');
     } catch (error) {
       console.error('Error stopping audio:', error);
@@ -1384,6 +1418,12 @@ export default function WaypointsScreen() {
             <View style={styles.approachingBadge}>
               <Ionicons name="location" size={14} color="#fff" />
               <Text style={styles.approachingText}>Waypoint Nearby</Text>
+            </View>
+          )}
+          {(playingId || backgroundAudioPlaying) && (
+            <View style={[styles.approachingBadge, { backgroundColor: '#2E5A3D', marginTop: 8 }]}>
+              <Ionicons name="musical-notes" size={14} color="#fff" />
+              <Text style={styles.approachingText}>Story Playing - Detection Paused</Text>
             </View>
           )}
         </View>

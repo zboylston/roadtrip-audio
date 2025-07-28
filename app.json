@@ -18,7 +18,11 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.curiousroad.app"
+      "package": "com.curiousroad.app",
+      "permissions": [
+        "android.permission.WAKE_LOCK",
+        "android.permission.FOREGROUND_SERVICE"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -42,6 +46,12 @@
           "icon": "./assets/images/notification-icon.png",
           "color": "#ffffff",
           "sounds": ["./assets/sounds/notification.wav"]
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": false
         }
       ]
     ],

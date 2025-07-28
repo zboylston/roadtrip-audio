@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
 import { Alert, Platform, SafeAreaView, ScrollView, StatusBar, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import CuriousRoadLogo from '../../components/CuriousRoadLogo';
@@ -378,7 +379,8 @@ export default function SettingsScreen() {
             
             <View style={styles.approachBehaviorContainer}>
               <Text style={styles.approachBehaviorDescription}>
-                When you're approaching a waypoint, the app can either alert you with a notification or automatically start playing the audio content.
+                When you're approaching a waypoint, the app can either alert you with a notification or automatically start playing the audio content.{'\n\n'}
+                <Text style={{ fontWeight: '600', color: '#2E5A3D' }}>Note:</Text> Waypoint detection is automatically paused while you're listening to a story to avoid interruptions.
               </Text>
               
               <View style={styles.modeToggleContainer}>
