@@ -380,7 +380,8 @@ export default function SettingsScreen() {
             <View style={styles.approachBehaviorContainer}>
               <Text style={styles.approachBehaviorDescription}>
                 When you're approaching a waypoint, the app can either alert you with a notification or automatically start playing the audio content.{'\n\n'}
-                <Text style={{ fontWeight: '600', color: '#2E5A3D' }}>Note:</Text> Waypoint detection is automatically paused while you're listening to a story to avoid interruptions.
+                <Text style={{ fontWeight: '600', color: '#2E5A3D' }}>Note:</Text> Waypoint detection is automatically paused while you're listening to a story to avoid interruptions.{'\n\n'}
+                <Text style={{ fontWeight: '600', color: '#8B4513' }}>Trip Start:</Text> When you start a trip, there's a 30-second delay before notifications begin to allow you to get settled.
               </Text>
               
               <View style={styles.modeToggleContainer}>

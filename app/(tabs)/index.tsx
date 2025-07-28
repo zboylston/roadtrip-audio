@@ -35,6 +35,7 @@ export default function WaypointsScreen() {
   const lastDetectionTimeRef = useRef<number>(0);
   const notifiedWaypointsRef = useRef<Set<string>>(new Set());
   const [backgroundAudioPlaying, setBackgroundAudioPlaying] = useState<boolean>(false);
+  const [tripStartDelayActive, setTripStartDelayActive] = useState<boolean>(false);
   const soundRef = useRef<Audio.Sound | null>(null);
   const mapWebViewRef = useRef<WebView>(null);
   const router = useRouter();
@@ -618,7 +619,14 @@ export default function WaypointsScreen() {
     let locationSub: any = null;
     if (tripActive) {
       tripStartTimeRef.current = Date.now();
+      setTripStartDelayActive(true);
       console.log('Trip started at:', new Date(tripStartTimeRef.current).toLocaleTimeString());
+      
+      // Clear the delay after 30 seconds
+      setTimeout(() => {
+        setTripStartDelayActive(false);
+        console.log('Trip start delay ended - notifications now active');
+      }, 30 * 1000);
       (async () => {
         try {
           let { status } = await Location.requestForegroundPermissionsAsync();
@@ -635,6 +643,7 @@ export default function WaypointsScreen() {
     } else {
       setUserLocation(null);
       setApproachingWaypoint(null);
+      setTripStartDelayActive(false);
       recentlyPlayedRef.current.clear(); // Reset rotation when trip stops
       notifiedWaypointsRef.current.clear(); // Reset notifications when trip stops
     }
@@ -721,11 +730,12 @@ export default function WaypointsScreen() {
     if (bestWaypoint && approachingWaypoint !== bestWaypoint.id) {
       const currentTime = Date.now();
       const notificationCooldown = 30 * 1000; // 30 seconds between notifications
-      const tripStartDelay = 10 * 1000; // 10 seconds delay after trip starts
+      const tripStartDelay = 30 * 1000; // 30 seconds delay after trip starts
       
       // Prevent notifications immediately after trip starts
       if (currentTime - tripStartTimeRef.current < tripStartDelay) {
-        console.log('Skipping notification - trip just started, waiting for delay');
+        const remainingDelay = Math.ceil((tripStartDelay - (currentTime - tripStartTimeRef.current)) / 1000);
+        console.log(`Skipping notification - trip just started, waiting ${remainingDelay} more seconds`);
         return;
       }
       
@@ -1424,6 +1434,12 @@ export default function WaypointsScreen() {
             <View style={[styles.approachingBadge, { backgroundColor: '#2E5A3D', marginTop: 8 }]}>
               <Ionicons name="musical-notes" size={14} color="#fff" />
               <Text style={styles.approachingText}>Story Playing - Detection Paused</Text>
+            </View>
+          )}
+          {tripStartDelayActive && (
+            <View style={[styles.approachingBadge, { backgroundColor: '#8B4513', marginTop: 8 }]}>
+              <Ionicons name="time" size={14} color="#fff" />
+              <Text style={styles.approachingText}>Starting Trip - Notifications in 30s</Text>
             </View>
           )}
         </View>
