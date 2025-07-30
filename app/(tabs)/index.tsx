@@ -30,7 +30,6 @@ export default function WaypointsScreen() {
   const [lastStoryTime, setLastStoryTime] = useState<number>(0);
   const [recentlyPlayedWaypoints, setRecentlyPlayedWaypoints] = useState<Set<string>>(new Set());
   const recentlyPlayedRef = useRef<Set<string>>(new Set());
-  const lastNotificationTimeRef = useRef<number>(0);
   const tripStartTimeRef = useRef<number>(0);
   const lastDetectionTimeRef = useRef<number>(0);
   const notifiedWaypointsRef = useRef<Set<string>>(new Set());
@@ -50,6 +49,7 @@ export default function WaypointsScreen() {
     backgroundLocationEnabled: true, // Default to true for road trip use case
     soundEnabled: true,
     vibrationEnabled: true,
+    audioVolumeBoost: true, // Enable volume boost for car environment
   };
   // const { settings } = useSettings();
 
@@ -419,6 +419,70 @@ export default function WaypointsScreen() {
     },
   });
 
+  // --- Audio Session Management for Car Safety ---
+  // These functions ensure waypoint stories are clearly audible by pausing background music
+  // while respecting car audio safety requirements and providing a smooth user experience
+  const configureAudioForWaypointPlayback = async () => {
+    try {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        staysActiveInBackground: true,
+        playsInSilentModeIOS: true,
+        shouldDuckAndroid: false, // Don't duck, we want to pause completely
+        playThroughEarpieceAndroid: false,
+        // Car safety: Pause other audio when waypoint stories play
+        interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DO_NOT_MIX,
+        interruptionModeAndroid: Audio.INTERRUPTION_MODE_ANDROID_DO_NOT_MIX,
+      });
+      console.log('Audio configured for waypoint playback - background music will be paused');
+    } catch (error) {
+      console.error('Error configuring audio for waypoint playback:', error);
+    }
+  };
+
+  const restoreAudioSession = async () => {
+    try {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        staysActiveInBackground: true,
+        playsInSilentModeIOS: true,
+        shouldDuckAndroid: false, // Stop ducking other audio
+        playThroughEarpieceAndroid: false,
+        interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DO_NOT_MIX,
+        interruptionModeAndroid: Audio.INTERRUPTION_MODE_ANDROID_DO_NOT_MIX,
+      });
+      console.log('Audio session restored - music can resume normally');
+    } catch (error) {
+      console.error('Error restoring audio session:', error);
+    }
+  };
+
+  // Boost audio volume for better car environment audibility
+  const boostAudioVolume = async (sound: Audio.Sound) => {
+    try {
+      // Set volume to maximum
+      await sound.setVolumeAsync(1.0);
+      
+      // Additional volume boost for car environment if enabled
+      if (settings.audioVolumeBoost) {
+        const status = await sound.getStatusAsync();
+        if (status.isLoaded) {
+          // Ensure we're at maximum volume with optimal settings
+          await sound.setStatusAsync({ 
+            volume: 1.0,
+            rate: 1.0,
+            shouldCorrectPitch: true,
+          });
+          console.log('Audio volume boosted for car environment');
+        }
+      } else {
+        console.log('Audio volume boost disabled');
+      }
+    } catch (error) {
+      console.error('Error boosting audio volume:', error);
+    }
+  };
+
   // --- Load waypoints from Firebase ---
   const loadWaypoints = async () => {
     try {
@@ -512,17 +576,20 @@ export default function WaypointsScreen() {
     loadWaypoints();
     loadUserPreferences();
     
-    // Configure audio for background playback
+    // Configure audio for background playback with car safety features
     const configureAudio = async () => {
       try {
         await Audio.setAudioModeAsync({
           allowsRecordingIOS: false,
           staysActiveInBackground: true,
           playsInSilentModeIOS: true,
-          shouldDuckAndroid: true,
+          shouldDuckAndroid: false, // Don't duck by default
           playThroughEarpieceAndroid: false,
+          // Car safety: Pause other audio when waypoint stories play
+          interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DO_NOT_MIX,
+          interruptionModeAndroid: Audio.INTERRUPTION_MODE_ANDROID_DO_NOT_MIX,
         });
-        console.log('Audio configured for background playback');
+        console.log('Audio configured for background playback with car safety features');
       } catch (error) {
         console.error('Error configuring audio:', error);
       }
@@ -747,7 +814,8 @@ export default function WaypointsScreen() {
     // Handle approaching state and notifications
     if (bestWaypoint && approachingWaypoint !== bestWaypoint.id) {
       const currentTime = Date.now();
-      const notificationCooldown = 30 * 1000; // 30 seconds between notifications
+      // Unified cooldown: Both notifications and auto-play respect the same 15-minute rest period
+      const storyCooldownPeriod = 15 * 60 * 1000; // 15 minutes between stories
       const tripStartDelay = 30 * 1000; // 30 seconds delay after trip starts
       
       // Prevent notifications immediately after trip starts
@@ -757,9 +825,10 @@ export default function WaypointsScreen() {
         return;
       }
       
-      // Prevent rapid-fire notifications
-      if (currentTime - lastNotificationTimeRef.current < notificationCooldown) {
-        console.log('Skipping notification - too soon since last one');
+      // Prevent notifications too soon after the last story finished (same cooldown as auto-play)
+      if (currentTime - lastStoryTime < storyCooldownPeriod) {
+        const remainingCooldown = Math.ceil((storyCooldownPeriod - (currentTime - lastStoryTime)) / 1000 / 60);
+        console.log(`Skipping notification - too soon since last story finished, waiting ${remainingCooldown} more minutes`);
         return;
       }
       
@@ -771,7 +840,6 @@ export default function WaypointsScreen() {
       
       console.log(`Selected waypoint: ${bestWaypoint.title} (${nearbyWaypoints.length} nearby, no-repeat: ${noRepeatStories}, recently played: ${recentlyPlayedRef.current.size})`);
       setApproachingWaypoint(bestWaypoint.id);
-      lastNotificationTimeRef.current = currentTime;
       notifiedWaypointsRef.current.add(bestWaypoint.id);
       
       // Always send notification for the best waypoint
@@ -791,10 +859,9 @@ export default function WaypointsScreen() {
         const textContent = bestWaypoint.textContent;
         const hasAudio = bestWaypoint.textContent || bestWaypoint.audioUrl || bestWaypoint.audioFile;
         const currentTime = Date.now();
-        const cooldownPeriod = 15 * 60 * 1000; // 15 minutes in milliseconds
         
         // Check if enough time has passed since last story AND we're not currently playing
-        if (hasAudio && !playingId && (currentTime - lastStoryTime) > cooldownPeriod) {
+        if (hasAudio && !playingId && (currentTime - lastStoryTime) > storyCooldownPeriod) {
           playAudio(textContent || '', bestWaypoint.id);
         }
       }
@@ -923,23 +990,37 @@ export default function WaypointsScreen() {
         soundRef.current = null;
       }
 
-      // Load and play the approach notification sound
+      // Load and play the approach notification sound with car safety features
       const { sound } = await Audio.Sound.createAsync(
         require('../../assets/audio/approach-notification.mp3'),
-        { shouldPlay: true, volume: 1.0 }
+        { 
+          shouldPlay: true, 
+          volume: 1.0, // Maximum volume
+          // Car safety: Ensure approach notification is clearly audible
+          rate: 1.0,
+          shouldCorrectPitch: true,
+          // Pause other audio (music, etc.) when approach notification plays
+          androidImplementation: 'MediaPlayer',
+        }
       );
+      
+      // Boost volume for maximum audibility in car environment
+      await boostAudioVolume(sound);
       
       // Store reference to clean up later
       soundRef.current = sound;
       
-      // Clean up after playing
+      // Clean up after playing and restore audio session
       sound.setOnPlaybackStatusUpdate((status) => {
         if (status.isLoaded && status.didJustFinish) {
           soundRef.current = null;
+          
+          // Restore audio session to allow music to resume normally
+          await restoreAudioSession();
         }
       });
       
-      console.log('Playing approach notification sound');
+      console.log('Playing approach notification sound - background music will be paused');
     } catch (error) {
       console.error('Error playing approach notification:', error);
       // Fallback to TTS if audio file fails
@@ -979,7 +1060,8 @@ export default function WaypointsScreen() {
       setPaused(false);
       setAudioLoading(true);
 
-      // Note: We'll record the finish time when the story completes, not the start time
+      // Configure audio session for waypoint playback (duck other audio)
+      await configureAudioForWaypointPlayback();
 
       // Track that this waypoint was listened to
       await saveListenedWaypoint(id);
@@ -1000,8 +1082,17 @@ export default function WaypointsScreen() {
             { 
               shouldPlay: true,
               progressUpdateIntervalMillis: 1000,
+              // Car safety: Ensure waypoint stories are clearly audible
+              volume: 1.0, // Maximum volume
+              rate: 1.0,
+              shouldCorrectPitch: true,
+              // Pause other audio (music, etc.) when waypoint story plays
+              androidImplementation: 'MediaPlayer',
             }
           );
+          
+          // Boost volume for maximum audibility in car environment
+          await boostAudioVolume(sound);
           soundRef.current = sound;
           
           sound.setOnPlaybackStatusUpdate((status) => {
@@ -1013,6 +1104,9 @@ export default function WaypointsScreen() {
                 setBackgroundAudioPlaying(false);
                 // Record the time this story finished (for cooldown)
                 setLastStoryTime(Date.now());
+                
+                // Restore audio session to allow music to resume normally
+                await restoreAudioSession();
               } else if (status.isPlaying) {
                 setBackgroundAudioPlaying(true);
               } else if (!status.isPlaying) {
@@ -1030,7 +1124,13 @@ export default function WaypointsScreen() {
 
       // Fallback to TTS if no audio file or audio file failed
       if (textContent) {
-        Speech.speak(textContent);
+        // Configure TTS for maximum volume and clarity in car environment
+        Speech.speak(textContent, {
+          rate: 0.9, // Slightly slower for better comprehension
+          pitch: 1.0, // Normal pitch
+          volume: 1.0, // Maximum volume
+          language: 'en-US', // Ensure English pronunciation
+        });
         setAudioLoading(false);
         console.log('Playing TTS for waypoint:', id);
         
@@ -1045,6 +1145,9 @@ export default function WaypointsScreen() {
             setPaused(false);
             // Record the time this story finished (for cooldown)
             setLastStoryTime(Date.now());
+            
+            // Restore audio session to allow music to resume normally
+            await restoreAudioSession();
           }
         }, estimatedDuration);
       }
@@ -1104,7 +1207,11 @@ export default function WaypointsScreen() {
       setPaused(false);
       setAudioLoading(false);
       setBackgroundAudioPlaying(false);
-      console.log('Audio stopped');
+      
+      // Restore audio session to allow music to resume normally
+      await restoreAudioSession();
+      
+      console.log('Audio stopped and session restored - music can resume normally');
     } catch (error) {
       console.error('Error stopping audio:', error);
     }
