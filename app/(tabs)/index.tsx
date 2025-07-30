@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Audio } from 'expo-av';
+import { Audio, InterruptionModeIOS, InterruptionModeAndroid } from 'expo-av';
 import * as Location from 'expo-location';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Speech from 'expo-speech';
@@ -431,8 +431,8 @@ export default function WaypointsScreen() {
         shouldDuckAndroid: false, // Don't duck, we want to pause completely
         playThroughEarpieceAndroid: false,
         // Car safety: Pause other audio when waypoint stories play
-        interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DO_NOT_MIX,
-        interruptionModeAndroid: Audio.INTERRUPTION_MODE_ANDROID_DO_NOT_MIX,
+        interruptionModeIOS: InterruptionModeIOS.DoNotMix,
+        interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
       });
       console.log('Audio configured for waypoint playback - background music will be paused');
     } catch (error) {
@@ -448,8 +448,8 @@ export default function WaypointsScreen() {
         playsInSilentModeIOS: true,
         shouldDuckAndroid: false, // Stop ducking other audio
         playThroughEarpieceAndroid: false,
-        interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DO_NOT_MIX,
-        interruptionModeAndroid: Audio.INTERRUPTION_MODE_ANDROID_DO_NOT_MIX,
+        interruptionModeIOS: InterruptionModeIOS.DoNotMix,
+        interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
       });
       console.log('Audio session restored - music can resume normally');
     } catch (error) {
@@ -586,8 +586,8 @@ export default function WaypointsScreen() {
           shouldDuckAndroid: false, // Don't duck by default
           playThroughEarpieceAndroid: false,
           // Car safety: Pause other audio when waypoint stories play
-          interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DO_NOT_MIX,
-          interruptionModeAndroid: Audio.INTERRUPTION_MODE_ANDROID_DO_NOT_MIX,
+          interruptionModeIOS: InterruptionModeIOS.DoNotMix,
+          interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
         });
         console.log('Audio configured for background playback with car safety features');
       } catch (error) {
@@ -1011,14 +1011,14 @@ export default function WaypointsScreen() {
       soundRef.current = sound;
       
       // Clean up after playing and restore audio session
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          soundRef.current = null;
-          
-          // Restore audio session to allow music to resume normally
-          await restoreAudioSession();
-        }
-      });
+              sound.setOnPlaybackStatusUpdate(async (status) => {
+          if (status.isLoaded && status.didJustFinish) {
+            soundRef.current = null;
+            
+            // Restore audio session to allow music to resume normally
+            await restoreAudioSession();
+          }
+        });
       
       console.log('Playing approach notification sound - background music will be paused');
     } catch (error) {
@@ -1095,7 +1095,7 @@ export default function WaypointsScreen() {
           await boostAudioVolume(sound);
           soundRef.current = sound;
           
-          sound.setOnPlaybackStatusUpdate((status) => {
+          sound.setOnPlaybackStatusUpdate(async (status) => {
             if (status.isLoaded) {
               setAudioLoading(false);
               if (status.didJustFinish) {
@@ -1139,7 +1139,7 @@ export default function WaypointsScreen() {
         const wordCount = textContent.split(' ').length;
         const estimatedDuration = (wordCount / 150) * 60 * 1000; // milliseconds
         
-        setTimeout(() => {
+        setTimeout(async () => {
           if (playingId === id) {
             setPlayingId(null);
             setPaused(false);
