@@ -35,6 +35,7 @@ export default function WaypointsScreen() {
   const notifiedWaypointsRef = useRef<Set<string>>(new Set());
   const [backgroundAudioPlaying, setBackgroundAudioPlaying] = useState<boolean>(false);
   const [tripStartDelayActive, setTripStartDelayActive] = useState<boolean>(false);
+  const [forceDetection, setForceDetection] = useState<number>(0);
   const soundRef = useRef<Audio.Sound | null>(null);
   const mapWebViewRef = useRef<WebView>(null);
   const router = useRouter();
@@ -711,6 +712,10 @@ export default function WaypointsScreen() {
       setTimeout(() => {
         setTripStartDelayActive(false);
         console.log('Trip start delay ended - notifications now active');
+              // Force a waypoint detection check after the delay ends
+      console.log('Forcing waypoint detection after delay ended');
+      // Trigger the detection by updating the forceDetection state
+      setForceDetection(Date.now());
       }, 30 * 1000);
       (async () => {
         try {
@@ -737,7 +742,14 @@ export default function WaypointsScreen() {
 
   // --- Check for approaching waypoints and handle notifications/auto-play ---
   useEffect(() => {
-    if (!userLocation || !waypoints.length || !tripActive) return;
+    if (!userLocation || !waypoints.length || !tripActive) {
+      console.log('Waypoint detection skipped - conditions not met:', {
+        hasUserLocation: !!userLocation,
+        waypointsLength: waypoints.length,
+        tripActive: tripActive
+      });
+      return;
+    }
     
     // Don't detect new waypoints while audio is playing
     if (playingId || backgroundAudioPlaying) {
@@ -825,6 +837,15 @@ export default function WaypointsScreen() {
         return;
       }
       
+      console.log('Notification check - Trip start delay passed, checking story cooldown...');
+      console.log('Notification check - Current time:', currentTime);
+      console.log('Notification check - Trip start time:', tripStartTimeRef.current);
+      console.log('Notification check - Last story time:', lastStoryTime);
+      console.log('Notification check - Time since trip start:', currentTime - tripStartTimeRef.current);
+      console.log('Notification check - Time since last story:', currentTime - lastStoryTime);
+      console.log('Notification check - Story cooldown period:', storyCooldownPeriod);
+      console.log('Notification check - Is within cooldown period:', currentTime - lastStoryTime < storyCooldownPeriod);
+      
       // Prevent notifications too soon after the last story finished (same cooldown as auto-play)
       if (currentTime - lastStoryTime < storyCooldownPeriod) {
         const remainingCooldown = Math.ceil((storyCooldownPeriod - (currentTime - lastStoryTime)) / 1000 / 60);
@@ -851,7 +872,10 @@ export default function WaypointsScreen() {
       
       // Play approach notification sound only in "Alert Me" mode
       if (settings.notificationMode === 'notification') {
+        console.log('Calling playApproachNotification() - notification mode is active');
         playApproachNotification();
+      } else {
+        console.log('Skipping approach notification - notification mode is:', settings.notificationMode);
       }
       
       // Auto-play story if in auto-play mode (with cooldown check)
@@ -871,7 +895,7 @@ export default function WaypointsScreen() {
         setApproachingWaypoint(null);
       }
     }
-  }, [userLocation, waypoints, tripActive, approachingWaypoint, settings.notificationMode, noRepeatStories, listenedWaypoints, lastStoryTime, playingId]);
+  }, [userLocation, waypoints, tripActive, approachingWaypoint, settings.notificationMode, noRepeatStories, listenedWaypoints, lastStoryTime, playingId, forceDetection]);
 
   // --- Update user location on map ---
   useEffect(() => {
@@ -984,6 +1008,8 @@ export default function WaypointsScreen() {
   // Play approach notification sound
   const playApproachNotification = async () => {
     try {
+      console.log('Starting approach notification sound...');
+      
       // Stop any currently playing audio first
       if (soundRef.current) {
         await soundRef.current.unloadAsync();
@@ -991,6 +1017,7 @@ export default function WaypointsScreen() {
       }
 
       // Load and play the approach notification sound with car safety features
+      console.log('Loading approach notification audio file...');
       const { sound } = await Audio.Sound.createAsync(
         require('../../assets/audio/approach-notification.mp3'),
         { 
@@ -1004,6 +1031,8 @@ export default function WaypointsScreen() {
         }
       );
       
+      console.log('Approach notification audio loaded successfully');
+      
       // Boost volume for maximum audibility in car environment
       await boostAudioVolume(sound);
       
@@ -1011,18 +1040,26 @@ export default function WaypointsScreen() {
       soundRef.current = sound;
       
       // Clean up after playing and restore audio session
-              sound.setOnPlaybackStatusUpdate(async (status) => {
-          if (status.isLoaded && status.didJustFinish) {
+      sound.setOnPlaybackStatusUpdate(async (status) => {
+        if (status.isLoaded) {
+          console.log('Approach notification status:', status);
+          if (status.didJustFinish) {
             soundRef.current = null;
-            
+            console.log('Approach notification finished, restoring audio session');
             // Restore audio session to allow music to resume normally
             await restoreAudioSession();
           }
-        });
+        }
+      });
       
       console.log('Playing approach notification sound - background music will be paused');
     } catch (error) {
       console.error('Error playing approach notification:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
       // Fallback to TTS if audio file fails
       Speech.speak("You're approaching a waypoint! Open the app and accept the story to listen in.");
     }
